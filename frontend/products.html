@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Smart Inventory</a>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="replenishment.html">Replenishment</a></li>
+                <li><a href="sales.html">Sales</a></li>
+                <li><a href="reports.html">Reports</a></li>
+                <li><a href="#" id="logoutLink">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>Product Catalog</h1>
+            <a href="product_form.html" id="addProductBtn" class="btn btn-success">+ Add Product</a>
+        </div>
+
+        <div id="alert" class="alert" style="display: none;"></div>
+
+        <div class="table-responsive">
+            <table id="productsTable">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Barcode</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Supplier</th>
+                        <th>Stock</th>
+                        <th>Selling Price</th>
+                        <th id="actionsHeader" style="display: none;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productList">
+                    <tr><td colspan="8" class="text-center">Loading products...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // ---------- AUTHENTICATION CHECK (NOT ROLE) ----------
+        (async function() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const user = await getUserInfo();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Store user for later use
+            window.currentUser = user;
+
+            // ---------- ROLE-BASED UI HIDING (NOT BLOCKING) ----------
+            const roles = user.roles ? user.roles.split(',') : [];
+            const isManager = roles.includes('manager') || roles.includes('admin');
+            
+            // Show/hide Add Product button
+            const addBtn = document.getElementById('addProductBtn');
+            if (addBtn) addBtn.style.display = isManager ? 'inline-block' : 'none';
+            
+            // Show/hide Actions column header
+            const actionsHeader = document.getElementById('actionsHeader');
+            if (actionsHeader) actionsHeader.style.display = isManager ? 'table-cell' : 'none';
+            
+            // Hide inventory link in navbar for clerk
+            const inventoryLink = document.querySelector('a[href="inventory.html"]');
+            if (inventoryLink) inventoryLink.style.display = isManager ? 'block' : 'none';
+            
+            // Load products (for ALL authenticated users)
+            loadProducts(isManager);
+        })();
+
+        // ---------- LOGOUT HANDLER ----------
+        document.getElementById('logoutLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            logout();
+        });
+
+        // ---------- LOAD PRODUCTS (from API) ----------
+        async function loadProducts(isManager) {
+            const tbody = document.getElementById('productList');
+            const token = localStorage.getItem('access_token');
+            
+            try {
+                const response = await fetch('/products?limit=500', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load products');
+                
+                const products = await response.json();
+                
+                if (products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">No products found.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                products.forEach(p => {
+                    html += `<tr>
+                        <td>${p.sku}</td>
+                        <td>${p.barcode}</td>
+                        <td>${p.name}</td>
+                        <td>${p.category_name || '-'}</td>
+                        <td>${p.supplier_name || '-'}</td>
+                        <td>${p.quantity_in_stock}</td>
+                        <td>Ksh ${p.selling_price}</td>
+                        ${isManager ? `
+                        <td>
+                            <a href="product_form.html?sku=${p.sku}" class="btn" style="padding:5px 10px; font-size:14px;">Edit</a>
+                            <button onclick="deleteProduct('${p.sku}')" class="btn btn-danger" style="padding:5px 10px; font-size:14px;">Delete</button>
+                        </td>
+                        ` : ''}
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center alert alert-error">Error loading products.</td></tr>';
+            }
+        }
+
+        // ---------- DELETE PRODUCT (Manager only) ----------
+        window.deleteProduct = async function(sku) {
+            if (!confirm('Are you sure you want to delete this product?')) return;
+            
+            const token = localStorage.getItem('access_token');
+            try {
+                const response = await fetch(`/products/${sku}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    alert('Product deleted successfully');
+                    loadProducts(true);
+                } else {
+                    const err = await response.json();
+                    alert(err.detail || 'Delete failed');
+                }
+            } catch (error) {
+                alert('Network error');
+            }
+        };
+    </script>
+</body>
+</html>

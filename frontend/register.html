@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <h2>Create Account</h2>
+        <div id="alert" class="alert" style="display: none;"></div>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select id="role" name="role" required>
+                    <option value="clerk">Clerk</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success" style="width:100%;">Register</button>
+        </form>
+        <p class="text-center mt-20">
+            Already have an account? <a href="login.html">Login</a>
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const alertDiv = document.getElementById('alert');
+
+            // Reset alert
+            alertDiv.style.display = 'none';
+            alertDiv.className = 'alert';
+
+            // Validation
+            if (!username || !email || !password || !role) {
+                alertDiv.style.display = 'block';
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'All fields are required.';
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/register', {  // ← RELATIVE URL WORKS
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        password: password,
+                        role: role
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alertDiv.style.display = 'block';
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = '✅ Registration successful! Redirecting to login...';
+                    setTimeout(() => window.location.href = 'login.html', 2000);
+                } else {
+                    alertDiv.style.display = 'block';
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = data.detail || 'Registration failed';
+                }
+            } catch (error) {
+                console.error('FETCH ERROR:', error);
+                alertDiv.style.display = 'block';
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'Network error. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>

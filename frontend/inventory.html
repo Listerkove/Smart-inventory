@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Smart Inventory</a>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="replenishment.html">Replenishment</a></li>
+                <li><a href="sales.html">Sales</a></li>
+                <li><a href="reports.html">Reports</a></li>
+                <li><a href="#" id="logoutLink">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Inventory Management</h1>
+        
+        <!-- Tab Navigation -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="tabReceipt" class="btn" style="background: #007bff;">Receive Stock</button>
+            <button id="tabAdjust" class="btn" style="background: #ffc107; color: black;">Adjust Stock</button>
+            <button id="tabHistory" class="btn" style="background: #17a2b8;">Movement History</button>
+        </div>
+
+        <!-- Stock Receipt Form -->
+        <div id="receiptForm" class="card">
+            <h3>📦 Receive Stock from Supplier</h3>
+            <form id="receiptFormElement">
+                <div class="form-group">
+                    <label for="receipt_sku">Product SKU *</label>
+                    <input type="text" id="receipt_sku" name="sku" required>
+                </div>
+                <div class="form-group">
+                    <label for="receipt_quantity">Quantity *</label>
+                    <input type="number" id="receipt_quantity" name="quantity" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="receipt_reference">Reference (PO # / Invoice #)</label>
+                    <input type="text" id="receipt_reference" name="reference_id">
+                </div>
+                <button type="submit" class="btn btn-success">Receive Stock</button>
+            </form>
+        </div>
+
+        <!-- Stock Adjustment Form (initially hidden) -->
+        <div id="adjustForm" class="card" style="display: none;">
+            <h3>⚖️ Manual Stock Adjustment</h3>
+            <form id="adjustFormElement">
+                <div class="form-group">
+                    <label for="adjust_sku">Product SKU *</label>
+                    <input type="text" id="adjust_sku" name="sku" required>
+                </div>
+                <div class="form-group">
+                    <label for="adjust_type">Adjustment Type *</label>
+                    <select id="adjust_type" name="movement_type" required>
+                        <option value="adjustment">Adjustment (+/-)</option>
+                        <option value="damage">Damage / Expired (-)</option>
+                        <option value="return">Customer Return (+)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="adjust_quantity">Quantity *</label>
+                    <input type="number" id="adjust_quantity" name="quantity" min="1" required>
+                    <small style="color: #666;">Positive number only. System will add or remove based on type.</small>
+                </div>
+                <div class="form-group">
+                    <label for="adjust_reason">Reason *</label>
+                    <input type="text" id="adjust_reason" name="reason" required>
+                </div>
+                <button type="submit" class="btn" style="background: #ffc107; color: black;">Record Adjustment</button>
+            </form>
+        </div>
+
+        <!-- Movement History (initially hidden) -->
+        <div id="historyView" style="display: none;">
+            <h3>📋 Stock Movement History</h3>
+            <div class="form-group">
+                <label for="filter_sku">Filter by Product SKU (optional)</label>
+                <input type="text" id="filter_sku" placeholder="Leave empty to show all">
+                <button id="applyFilter" class="btn" style="margin-top: 10px; background: #17a2b8;">Apply Filter</button>
+                <button id="resetFilter" class="btn" style="margin-top: 10px; background: #6c757d;">Reset</button>
+            </div>
+            <div class="table-responsive">
+                <table id="movementsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th>Previous</th>
+                            <th>New</th>
+                            <th>Reference</th>
+                            <th>Reason</th>
+                            <th>By</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movementList">
+                        <tr><td colspan="10" class="text-center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="alert" class="alert" style="display: none; margin-top: 20px;"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // ---------- 🔒 ROLE CHECK – MANAGER/ADMIN ONLY ----------
+        (async function() {
+            const user = await checkAuth(['manager', 'admin']);
+            if (!user) return;  // redirect happened
+            
+            window.currentUser = user;
+            
+            // ---------- HIDE INVENTORY LINK IN NAVBAR (redundant but safe) ----------
+            const roles = user.roles ? user.roles.split(',') : [];
+            const isManager = roles.includes('manager') || roles.includes('admin');
+            const inventoryLink = document.querySelector('a[href="inventory.html"]');
+            if (inventoryLink) inventoryLink.style.display = isManager ? 'block' : 'none';
+            
+            // ---------- TAB SWITCHING ----------
+            const receiptForm = document.getElementById('receiptForm');
+            const adjustForm = document.getElementById('adjustForm');
+            const historyView = document.getElementById('historyView');
+            const tabReceipt = document.getElementById('tabReceipt');
+            const tabAdjust = document.getElementById('tabAdjust');
+            const tabHistory = document.getElementById('tabHistory');
+
+            function showTab(tab) {
+                receiptForm.style.display = 'none';
+                adjustForm.style.display = 'none';
+                historyView.style.display = 'none';
+                
+                if (tab === 'receipt') receiptForm.style.display = 'block';
+                else if (tab === 'adjust') adjustForm.style.display = 'block';
+                else if (tab === 'history') {
+                    historyView.style.display = 'block';
+                    loadMovements();
+                }
+            }
+
+            tabReceipt.addEventListener('click', () => showTab('receipt'));
+            tabAdjust.addEventListener('click', () => showTab('adjust'));
+            tabHistory.addEventListener('click', () => showTab('history'));
+
+            // ---------- STOCK RECEIPT ----------
+            document.getElementById('receiptFormElement').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const sku = document.getElementById('receipt_sku').value.trim();
+                const quantity = parseInt(document.getElementById('receipt_quantity').value);
+                const reference_id = document.getElementById('receipt_reference').value.trim() || null;
+                const alertDiv = document.getElementById('alert');
+
+                alertDiv.style.display = 'none';
+                alertDiv.className = 'alert';
+
+                try {
+                    const response = await fetch('/inventory/receipt', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                        },
+                        body: JSON.stringify({ product_sku: sku, quantity, reference_id })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alertDiv.style.display = 'block';
+                        alertDiv.className = 'alert alert-success';
+                        alertDiv.textContent = `✅ Stock received. New quantity: ${data.new_quantity}`;
+                        document.getElementById('receiptFormElement').reset();
+                    } else {
+                        alertDiv.style.display = 'block';
+                        alertDiv.className = 'alert alert-error';
+                        alertDiv.textContent = data.detail || 'Failed to receive stock';
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alertDiv.style.display = 'block';
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = 'Network error. Please try again.';
+                }
+            });
+
+            // ---------- STOCK ADJUSTMENT ----------
+            document.getElementById('adjustFormElement').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const sku = document.getElementById('adjust_sku').value.trim();
+                const movement_type = document.getElementById('adjust_type').value;
+                const quantity = parseInt(document.getElementById('adjust_quantity').value);
+                const reason = document.getElementById('adjust_reason').value.trim();
+                const alertDiv = document.getElementById('alert');
+
+                alertDiv.style.display = 'none';
+                alertDiv.className = 'alert';
+
+                try {
+                    const response = await fetch('/inventory/adjust', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                        },
+                        body: JSON.stringify({ product_sku: sku, movement_type, quantity, reason })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alertDiv.style.display = 'block';
+                        alertDiv.className = 'alert alert-success';
+                        alertDiv.textContent = `✅ Adjustment recorded. New quantity: ${data.new_quantity}`;
+                        document.getElementById('adjustFormElement').reset();
+                    } else {
+                        alertDiv.style.display = 'block';
+                        alertDiv.className = 'alert alert-error';
+                        alertDiv.textContent = data.detail || 'Failed to record adjustment';
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alertDiv.style.display = 'block';
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = 'Network error. Please try again.';
+                }
+            });
+            
+
+            // ---------- MOVEMENT HISTORY ----------
+            async function loadMovements(skuFilter = '') {
+                const tbody = document.getElementById('movementList');
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center">Loading...</td></tr>';
+                
+                let url = '/inventory/movements?limit=200';
+                if (skuFilter) url += `&product_sku=${encodeURIComponent(skuFilter)}`;
+
+                try {
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                    });
+                    if (!response.ok) throw new Error('Failed to load movements');
+                    
+                    const movements = await response.json();
+                    
+                    if (movements.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center">No movements found.</td></tr>';
+                        return;
+                    }
+
+                    let html = '';
+                    movements.forEach(m => {
+                        const date = new Date(m.created_at).toLocaleString();
+                        const sign = m.movement_type === 'sale' || m.movement_type === 'damage' ? '-' : '+';
+                        html += `<tr>
+                            <td>${date}</td>
+                            <td>${m.product_name || '-'}</td>
+                            <td>${m.product_sku}</td>
+                            <td>${m.movement_type}</td>
+                            <td>${sign}${m.quantity}</td>
+                            <td>${m.previous_quantity}</td>
+                            <td>${m.new_quantity}</td>
+                            <td>${m.reference_id || '-'}</td>
+                            <td>${m.reason || '-'}</td>
+                            <td>${m.performed_by || 'system'}</td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                } catch (error) {
+                    console.error(error);
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center alert alert-error">Error loading movements.</td></tr>';
+                }
+            }
+            
+
+            // Filter button
+            document.getElementById('applyFilter')?.addEventListener('click', function() {
+                const sku = document.getElementById('filter_sku').value.trim();
+                loadMovements(sku);
+            });
+
+            // Reset filter
+            document.getElementById('resetFilter')?.addEventListener('click', function() {
+                document.getElementById('filter_sku').value = '';
+                loadMovements('');
+            });
+
+            // Show default tab
+            showTab('receipt');
+        })();
+
+        // ---------- LOGOUT ----------
+        document.getElementById('logoutLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            logout();
+        });
+    </script>
+</body>
+</html>

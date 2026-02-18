@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integration - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .section-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .api-key-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            border: 1px solid #dee2e6;
+        }
+        .webhook-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-secondary { background: #e2e3e5; color: #383d41; }
+        .event-tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin: 2px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Smart Inventory</a>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="sales.html">Sales</a></li>
+                <li><a href="replenishment.html">Replenishment</a></li>
+                <li><a href="suppliers.html">Suppliers</a></li>
+                <li><a href="reports.html">Reports</a></li>
+                <li><a href="integration.html">Integration</a></li>
+                <li><a href="#" id="logoutLink">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>🔌 Integration Settings</h1>
+
+        <!-- Status Summary -->
+        <div class="section-card">
+            <h3>📊 Integration Status</h3>
+            <div id="statusSummary" style="display: flex; gap: 30px; margin-top: 15px;">
+                <div><strong>API Keys:</strong> <span id="totalApiKeys">0</span> active / <span id="activeApiKeys">0</span> total</div>
+                <div><strong>Webhooks:</strong> <span id="totalWebhooks">0</span> active / <span id="activeWebhooks">0</span> total</div>
+            </div>
+        </div>
+
+        <!-- API Keys Section -->
+        <div class="section-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>🔑 API Keys</h3>
+                <button id="addApiKeyBtn" class="btn btn-success">+ New API Key</button>
+            </div>
+            <div id="apiKeyFormContainer" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                <h4>Create API Key</h4>
+                <div class="form-group">
+                    <label>Key Name (e.g., "ERP System")</label>
+                    <input type="text" id="apiKeyName" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Expires in (days, leave empty for no expiry)</label>
+                    <input type="number" id="apiKeyExpiry" class="form-control" min="1">
+                </div>
+                <button id="saveApiKeyBtn" class="btn btn-success">Generate</button>
+                <button id="cancelApiKeyBtn" class="btn" style="background:#6c757d;">Cancel</button>
+            </div>
+            <div id="apiKeysList" style="margin-top: 15px;">
+                <p>Loading API keys...</p>
+            </div>
+        </div>
+
+        <!-- Webhooks Section -->
+        <div class="section-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>📡 Webhooks</h3>
+                <button id="addWebhookBtn" class="btn btn-success">+ New Webhook</button>
+            </div>
+            <div id="webhookFormContainer" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                <h4 id="webhookFormTitle">Create Webhook</h4>
+                <input type="hidden" id="webhookId">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="webhookName" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>URL</label>
+                    <input type="url" id="webhookUrl" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Secret (optional)</label>
+                    <input type="text" id="webhookSecret" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Events</label>
+                    <div>
+                        <label><input type="checkbox" value="replenishment.accepted"> replenishment.accepted</label>
+                        <label><input type="checkbox" value="stock.low"> stock.low</label>
+                        <label><input type="checkbox" value="stock.out"> stock.out</label>
+                        <label><input type="checkbox" value="sale.completed"> sale.completed</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="webhookActive" checked> Active</label>
+                </div>
+                <button id="saveWebhookBtn" class="btn btn-success">Save</button>
+                <button id="cancelWebhookBtn" class="btn" style="background:#6c757d;">Cancel</button>
+            </div>
+            <div id="webhooksList" style="margin-top: 15px;">
+                <p>Loading webhooks...</p>
+            </div>
+        </div>
+
+        <!-- Recent Deliveries -->
+        <div class="section-card">
+            <h3>📬 Recent Webhook Deliveries</h3>
+            <div id="deliveriesList">
+                <p>Loading...</p>
+            </div>
+        </div>
+
+        <div id="alert" class="alert" style="display: none;"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/integration.js"></script>
+</body>
+</html>

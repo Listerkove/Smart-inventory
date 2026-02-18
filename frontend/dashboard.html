@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js for simple charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: #6c757d;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        .alert-card {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .low-stock-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .low-stock-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .badge-warning {
+            background: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Smart Inventory</a>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="replenishment.html">Replenishment</a></li>
+                <li><a href="sales.html">Sales</a></li>
+                <li><a href="reports.html">Reports</a></li>
+                <li><a href="#" id="logoutLink">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>📊 Dashboard</h1>
+            <div id="userInfo" style="font-size: 18px;"></div>
+        </div>
+
+        <!-- Summary Metrics (auto-updated) -->
+        <div class="dashboard-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">Total Products</div>
+                <div class="metric-value" id="totalProducts">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Stock Value (Ksh)</div>
+                <div class="metric-value" id="stockValue">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Low Stock Items</div>
+                <div class="metric-value" id="lowStockCount">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Out of Stock</div>
+                <div class="metric-value" id="outOfStockCount">-</div>
+            </div>
+        </div>
+
+        <!-- Today's Sales Card -->
+        <div class="chart-container">
+            <h3>📅 Today's Sales</h3>
+            <div id="todaySales" style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 24px; font-weight: bold;" id="todayTransactions">0</div>
+                    <div>Transactions</div>
+                </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: bold;" id="todayItems">0</div>
+                    <div>Items Sold</div>
+                </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: bold;" id="todayRevenue">0.00</div>
+                    <div>Revenue (Ksh)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two-column layout for low stock + chart -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+            <!-- Low Stock Alerts (Manager/Admin only) -->
+            <div class="chart-container" id="lowStockSection">
+                <h3>⚠️ Low Stock Alerts</h3>
+                <div id="lowStockList">
+                    <p style="text-align: center; color: #999;">Loading...</p>
+                </div>
+            </div>
+            <!-- Top Selling Products Chart -->
+            <div class="chart-container">
+                <h3>📈 Top Products (Last 30 Days)</h3>
+                <canvas id="topProductsChart" style="width:100%; max-height:250px;"></canvas>
+            </div>
+        </div>
+
+        <div id="alert" class="alert" style="display: none; margin-top: 20px;"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        const inventoryLink = document.querySelector('a[href="inventory.html"]');
+        if (inventoryLink) inventoryLink.style.display = isManager ? 'block' : 'none';
+    </script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
