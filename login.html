@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <h2>Smart Inventory System</h2>
+        <div id="alert" class="alert" style="display: none;"></div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-success" style="width:100%;">Login</button>
+        </form>
+        <p class="text-center mt-20">
+            Don't have an account? <a href="register.html">Register</a>
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const alertDiv = document.getElementById('alert');
+
+            alertDiv.style.display = 'none';
+            alertDiv.className = 'alert';
+
+            if (!username || !password) {
+                alertDiv.style.display = 'block';
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'Username and password are required.';
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/login', {   // ✅ RELATIVE URL
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('access_token', data.access_token);
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alertDiv.style.display = 'block';
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = data.detail || 'Login failed';
+                }
+            } catch (error) {
+                console.error('LOGIN FETCH ERROR:', error);
+                alertDiv.style.display = 'block';
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'Network error. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>

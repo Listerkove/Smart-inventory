@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Form - Smart Inventory</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Smart Inventory</a>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="inventory.html">Inventory</a></li>
+                <li><a href="sales.html">Sales</a></li>
+                <li><a href="reports.html">Reports</a></li>
+                <li><a href="#" id="logoutLink">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 id="formTitle">Add New Product</h1>
+        <div id="alert" class="alert" style="display: none;"></div>
+        
+        <form id="productForm">
+            <div class="form-group">
+                <label for="sku">SKU *</label>
+                <input type="text" id="sku" name="sku" required>
+            </div>
+            <div class="form-group">
+                <label for="barcode">Barcode *</label>
+                <input type="text" id="barcode" name="barcode" required>
+            </div>
+            <div class="form-group">
+                <label for="name">Product Name *</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="category_id">Category</label>
+                <select id="category_id" name="category_id">
+                    <option value="">-- Select Category --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="supplier_id">Supplier</label>
+                <select id="supplier_id" name="supplier_id">
+                    <option value="">-- Select Supplier --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="cost_price">Cost Price (Ksh) *</label>
+                <input type="number" id="cost_price" name="cost_price" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="selling_price">Selling Price (Ksh) *</label>
+                <input type="number" id="selling_price" name="selling_price" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="quantity_in_stock">Initial Stock</label>
+                <input type="number" id="quantity_in_stock" name="quantity_in_stock" min="0" value="0">
+            </div>
+            <div class="form-group">
+                <label for="reorder_threshold">Reorder Threshold</label>
+                <input type="number" id="reorder_threshold" name="reorder_threshold" min="0" value="5">
+            </div>
+            <button type="submit" class="btn btn-success">Save Product</button>
+            <a href="products.html" class="btn" style="background:#6c757d;">Cancel</a>
+        </form>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // ---------- AUTH CHECK (manager/admin only) ----------
+        (async function() {
+            const user = await checkAuth(['manager', 'admin']);
+            if (!user) return;
+            window.currentUser = user;
+        })();
+
+        // Get SKU from URL if editing
+        const urlParams = new URLSearchParams(window.location.search);
+        const editSku = urlParams.get('sku');
+        const formTitle = document.getElementById('formTitle');
+        const skuInput = document.getElementById('sku');
+
+        if (editSku) {
+            formTitle.textContent = 'Edit Product';
+            skuInput.readOnly = true;
+        }
+
+        // Load categories and suppliers for dropdowns
+        async function loadDropdowns() {
+            const token = localStorage.getItem('access_token');
+            try {
+                // Categories
+                const catRes = await fetch('/products/categories', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!catRes.ok) throw new Error('Failed to load categories');
+                const categories = await catRes.json();
+                const catSelect = document.getElementById('category_id');
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = cat.name;
+                    catSelect.appendChild(option);
+                });
+
+                // Suppliers
+                const supRes = await fetch('/products/suppliers', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!supRes.ok) throw new Error('Failed to load suppliers');
+                const suppliers = await supRes.json();
+                const supSelect = document.getElementById('supplier_id');
+                suppliers.forEach(sup => {
+                    const option = document.createElement('option');
+                    option.value = sup.id;
+                    option.textContent = sup.name;
+                    supSelect.appendChild(option);
+                });
+
+                // If editing, load product data
+                if (editSku) {
+                    const prodRes = await fetch(`/products/${editSku}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!prodRes.ok) throw new Error('Product not found');
+                    const product = await prodRes.json();
+                    document.getElementById('sku').value = product.sku;
+                    document.getElementById('barcode').value = product.barcode;
+                    document.getElementById('name').value = product.name;
+                    document.getElementById('category_id').value = product.category_id || '';
+                    document.getElementById('supplier_id').value = product.supplier_id || '';
+                    document.getElementById('cost_price').value = product.cost_price;
+                    document.getElementById('selling_price').value = product.selling_price;
+                    document.getElementById('quantity_in_stock').value = product.quantity_in_stock;
+                    document.getElementById('reorder_threshold').value = product.reorder_threshold;
+                }
+            } catch (error) {
+                console.error('Error loading dropdowns:', error);
+                showAlert('Failed to load form data', 'error');
+            }
+        }
+
+        // Show alert helper
+        function showAlert(message, type = 'error') {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.style.display = 'block';
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Form submission
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const formData = {
+                sku: document.getElementById('sku').value.trim(),
+                barcode: document.getElementById('barcode').value.trim(),
+                name: document.getElementById('name').value.trim(),
+                category_id: document.getElementById('category_id').value || null,
+                supplier_id: document.getElementById('supplier_id').value || null,
+                cost_price: parseFloat(document.getElementById('cost_price').value),
+                selling_price: parseFloat(document.getElementById('selling_price').value),
+                quantity_in_stock: parseInt(document.getElementById('quantity_in_stock').value) || 0,
+                reorder_threshold: parseInt(document.getElementById('reorder_threshold').value) || 5
+            };
+
+            const url = editSku ? `/products/${editSku}` : '/products';
+            const method = editSku ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    showAlert(editSku ? 'Product updated successfully!' : 'Product added successfully!', 'success');
+                    setTimeout(() => window.location.href = 'products.html', 1500);
+                } else {
+                    const err = await response.json();
+                    showAlert(err.detail || 'Failed to save product', 'error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showAlert('Network error. Please try again.', 'error');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            logout();
+        });
+
+        // Initialize
+        loadDropdowns();
+    </script>
+</body>
+</html>
